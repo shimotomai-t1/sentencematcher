@@ -1,15 +1,14 @@
 #smatch.py
 
+import json
 from bert_score import score
 from sklearn.mixture import GaussianMixture
 from sentence_transformers import SentenceTransformer, util
 import matplotlib.pyplot as plt
-import pandas
-import pandas as pd
-import numpy
 import numpy as np
+import numpy
 
-
+import click
 
 # prompt: ２つのクラスタの確率密度値が一致する点を２分法で求めたい。初期値は0と1からはじめてください
 
@@ -109,9 +108,12 @@ def aggregate_connections(opath):
 
     for a, b in opath:
         node = (a, b)
+        #print(f'node: {node}')
         found_group = False
         for i, group in enumerate(groups):
-            if any((a, _) in group or (_, b) in group for _, _ in group):
+            #print(f'{i} group: {group}')
+            if any((a, bb) in group or (aa, b) in group for aa, bb in group):
+              #print(f'found group: {i} a in group?{(a, _) in group} b in group?{(_, b) in group}')
               groups[i].append(node)
               node_map[node] = i
               found_group = True
@@ -119,49 +121,92 @@ def aggregate_connections(opath):
         if not found_group:
           groups.append([node])
           node_map[node] = len(groups) - 1
+        #print(f'node_map: {node_map}')
+        #print(f'groups: {groups}')
     return groups
 
-def corresponder(A,B, connections):
+def corresponder(A,B, connections) -> dict:
+  """
+  Groups connected nodes from two groups based on edge information.
+  Args:
+      A: A list of nodes from group A.
+      B: A list of nodes from group B.
+      connections: A list of tuples, where each tuple represents an edge
+                   connecting a node from group A to a node from group B.
+  Returns:
+      A list of lists, where each sublist contains connected nodes from A and B.
+  """
   alist = [{a for a,b in c} for c in connections]
-  print(alist)
+  print('A-list:', alist)
   blist = [{b for a,b in c} for c in connections]
-  print(blist)
+  print('B-list:', blist)
   anew = [[A[i] for i in elm] for elm in alist]
   bnew = [[B[i] for i in elm] for elm in blist]
-  return anew, bnew
+  return {'A':anew, 'B':bnew}
 
 
+@click.command()
+@click.argument('fileA', default='doca.txt', type=str)
+@click.argument('fileB', default='docb.txt', type=str)
+@click.option('--threshold', default=0.9, type=float, help='Threshold for similarity scores')
+@click.option('--output', default='result.json', type=str, help='Output file name')
+def main(filea, fileb, threshold, output):
+    """
+    Main function to compute sentence embeddings, similarity scores,
+    and perform dynamic programming matching.
+    Args:
+        threshold: A threshold value for similarity scores.
+    Returns:
+        A dictionary containing the results of the processing.
+    """
 
-def main():
-    # prompt: sentenceBERTを使って同様にengtxtとtranslated_literalのそれぞれの文をすべての組み合わせで類似度を計算してください。
-    # Load the Sentence Transformer model
+    # Read the input files
+    with open(filea, 'r', encoding='utf-8') as f:
+        doca = [line.rstrip() for line in f.readlines()]
+    with open(fileb, 'r', encoding='utf-8') as f:
+        docb = [line.rstrip() for line in f.readlines()]
+    result = proc(doca, docb, threshold)
+    n = result['n']
+    print(n)
+    for i in range(n):
+        print(f"{i}:0:{result['A'][i]}")
+        print(f"{i}:1:{result['B'][i]}")
+    print(result)
+    with open(output, 'w', encoding='utf-8') as f:
+      json.dump(result, f, ensure_ascii=False, indent=4)
+    return result
+
+def proc(docA:list, docB:list, threshold:float=0.9) -> dict:
+    """
+    Main function to compute sentence embeddings, similarity scores,
+    and perform dynamic programming matching.
+    Args:
+        threshold: A threshold value for similarity scores.
+    Returns:
+    """
+    #engtxt = docA
+    #translated_literal = docB
     model = SentenceTransformer('all-mpnet-base-v2')
     # Compute sentence embeddings for all sentences
-    engtxt_embeddings = model.encode(engtxt)
-    translated_literal_embeddings = model.encode(translated_literal)
+    a_embeddings = model.encode(docA)
+    b_embeddings = model.encode(docB)
 
     # Compute cosine similarities
-    cosine_scores = util.cos_sim(engtxt_embeddings, translated_literal_embeddings)
-    sim = model.similarity(engtxt_embeddings, translated_literal_embeddings)
+    #cosine_scores = util.cos_sim(a_embeddings, b_embeddings)
+    sim = model.similarity(a_embeddings, b_embeddings)
     print(sim)
-    plt.pcolor(sim)
-
-    plt.pcolor(-numpy.log(numpy.array(sim)+0.0001))
-    plt.colorbar()
-    -numpy.log(numpy.array(sim)+0.0001)
-
-    numpy.median(sim)
 
     plt.hist(sim.flatten(), bins=100)
-    plt.show()
+    plt.savefig('similarity_hist.png')
+    plt.savefig('similarity_hist.svg')
+    #plt.show()
+    plt.clf()
 
     # prompt: simを１次元の値に変換してから１次元GMM２クラスタでフィッティングしてください。結果推定されたパラメータを表示してください。２つのガウス分布をプロットしてください。
     # Assuming 'sim' is already defined from the previous code
     sim_1d = sim.flatten()  # Convert sim to a 1D array
-
     # Fit a 1D 2-component GMM
     gmm = GaussianMixture(n_components=2, random_state=0).fit(sim_1d.reshape(-1, 1))
-
     # Estimated parameters
     means = gmm.means_.flatten()
     covariances = np.sqrt(gmm.covariances_.flatten())  # Standard deviations
@@ -184,34 +229,29 @@ def main():
     plt.ylabel('Probability Density')
     plt.title('2-Component GMM Fit')
     plt.legend()
-    plt.show()
+    plt.savefig('gmm_fit.png')
+    plt.savefig('gmm_fit.svg')
+    plt.clf()
 
-    # Example usage
     a = 0
     b = 1
     tolerance = 1e-6
     root = bisection(a, b, tolerance, means, covariances)
-
-    #if root is not None:
-    #    print(f"The root is approximately: {root}")
-    #    print(f"f({root}) = {f(root)}")
-    # Example root value (replace with your actual root value)
-    #root = 0.5
-
-    max_score, optimal_path = dp_matching(sim, root)
+    max_score, optimal_path = dp_matching(sim, root*threshold)
     print(f"Maximum score: {max_score}")
     print("Optimal path:", optimal_path)
 
     # Example usage (assuming 'sim' and 'optimal_path' are defined from the previous code)
     plot_optimal_path(sim, optimal_path)
     print(translated_literal, len(translated_literal))
-
-    #opath=[(1, 1), (2, 2), (2, 3), (2, 4), (2, 5), (3, 5), (4, 5), (5, 6)]
-    #aggregate_connections(opath)
     aggregate_connections(optimal_path)
-    result = corresponder(engtxt, translated_literal, aggregate_connections(optimal_path))
-
-    print(result)
+    result = corresponder(docA, docB, aggregate_connections(optimal_path))
+    result['path'] = optimal_path
+    result['max_score'] = max_score
+    result['threshold'] = threshold
+    result['sim'] = sim.tolist()
+    result['n'] = len(result['A'])
+    return result
 
 
 # prompt: 文章の比較をするので２０行程度の日本語の文を作ってください。内容は全体で一貫性のあるストーリーにして、１行は５文字から１００文字の幅を持ったものにしてください。文字列はリストとしてoriginalというインスタンスにしてください
@@ -273,10 +313,4 @@ translated_literal = [
 
 if __name__ == '__main__':
     main()
-    with open('translated.txt', 'w') as f:
-        for line in translated_literal:
-            f.write(line + '\n')
-    with open('original.txt', 'w') as f:
-        for line in original:
-            f.write(line + '\n')
     
