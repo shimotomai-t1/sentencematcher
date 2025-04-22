@@ -16,6 +16,16 @@ def f(x, means, covariances):
   return (1 / (covariances[0] * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - means[0]) / covariances[0])**2) - (1 / (covariances[1] * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - means[1]) / covariances[1])**2)
 
 def bisection(a, b, tolerance, means, covariances):
+    """Finds the root of the function f using the bisection method.
+    Args:
+        a: The lower bound of the interval.
+        b: The upper bound of the interval.
+        tolerance: The tolerance for convergence.
+        means: The means of the two Gaussian distributions.
+        covariances: The standard deviations of the two Gaussian distributions.
+    Returns:
+        The root of the function f within the interval [a, b].
+    """
     if f(a,means,covariances) * f(b,means,covariances) >= 0:
         print("Bisection method fails.")
         return None
@@ -31,7 +41,15 @@ def bisection(a, b, tolerance, means, covariances):
     return (a + b) / 2
 
 # prompt: simの値を元にDPマッチングをしてください。縦横方向のスコアはすでに求めたrootの値をつかい、斜め方向のスコアはsimの値を使い、経路の合計スコアが最大となる経路を探してください。
-def dp_matching(sim, root):
+def dp_matching(sim:numpy.ndarray, root:float):
+  """Performs dynamic programming matching on the similarity matrix.
+  Args:
+      sim: A 2D numpy array representing the similarity matrix.
+      root: The score for horizontal and vertical movements.
+  Returns:
+      A tuple containing the maximum score and the optimal path.
+  """
+  # Initialize the DP table
   n = len(sim)
   m = len(sim[0])
 
