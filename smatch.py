@@ -101,7 +101,10 @@ def plot_optimal_path(sim, optimal_path):
     plt.title("Optimal Path for Sentence Alignment")
     plt.xticks(range(len(sim[0])))  # Set x-axis ticks
     plt.yticks(range(len(sim)))    # Set y-axis ticks
-    plt.show()
+    #plt.show()
+    plt.savefig('optimal_path.png')
+    plt.savefig('optimal_path.svg')
+    plt.clf()
 
 
 
