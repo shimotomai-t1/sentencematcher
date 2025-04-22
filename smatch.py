@@ -241,8 +241,6 @@ def proc(docA:list, docB:list, threshold:float=0.9) -> dict:
     x = np.linspace(sim_1d.min(), sim_1d.max(), 100)
     y1 =  (1 / (covariances[0] * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - means[0]) / covariances[0])**2)
     y2 =  (1 / (covariances[1] * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - means[1]) / covariances[1])**2)
-
-
     plt.plot(x, y1, label='Gaussian 1')
     plt.plot(x, y2, label='Gaussian 2')
     plt.hist(sim_1d, bins=100, density=True, alpha=0.5, label='Data') # Overlay histogram
@@ -301,12 +299,7 @@ original = [
 
 # prompt: 上のoriginal全体で統合して、英語に翻訳してください。わかりやすいように文章間に意味を補う文章を入れてください。その後各文に分解してtranslatedというリストにしてください
 # Combine the sentences to form a coherent paragraph.
-combined_text = " ".join(original)
 
-# Translate the combined text into English.
-eng_text = "A tranquil lake reflects the setting sun.  On the water's surface, faint ripples spread. A single white swan glides gracefully across the water; its form is like a painting. By the lakeshore, there stands an old, small cottage. Warm light leaks from the cottage's window. Inside, an old woman quietly reads. She is immersed in the memories of her long life. Occasionally, her gaze, fixed upon the lake, seems to look far into the distance. Beyond the lake, mountains stretch out. The mountains, painted by the sunset, reveal their majestic appearance. In the sky, stars begin to shine, one by one. In the silence, only the sounds of nature are audible – the sound of the wind, the murmuring water, and the birdsong. The old woman closes her book and gazes out the window. Her heart finds peace in the tranquil lake and the beautiful sunset. She feels hope for tomorrow. Under the calm night sky, the lake quietly falls asleep. The white swan takes flight toward the distant sky. Then, a quiet night descends upon the lakeside cottage."
-#Split the translated text into individual sentences.
-engtxt = eng_text.split('. ')
 
 # prompt: originalの各文を直訳してください。
 translated_literal = [
