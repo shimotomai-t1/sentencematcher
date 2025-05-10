@@ -31,7 +31,10 @@ def extract_dialogue(srt_file, output, verbose):
         dialogues = [{'line':[line.strip()]} for group in dialogue_lines for line in group.split('\n') if line.strip()]
 
         # Output the result as a JSON list
-        if output:
+        if output is not None:
+            with open(f'{output}.txt', 'w', encoding='utf-8') as fp:
+                for line in dialogues:
+                    fp.write(' '.join(line['line'])+'\n')
             with open(output, 'w', encoding='utf-8') as outfile:
                 json.dump(dialogues, outfile, ensure_ascii=False, indent=2)
         else:
