@@ -261,6 +261,8 @@ def proc(docA:list, docB:list, threshold:float=0.5, modelname='paraphrase-multil
     result['gmmcov'] = gmm.covariances_.tolist()
     result['AEmbeddings'] = a_embeddings.tolist()
     result['BEmbeddings'] = b_embeddings.tolist()
+    result['AOriginal'] = docA
+    result['BOriginal'] = docB
     return result
 
 @click.group()
@@ -328,15 +330,28 @@ def matrix(filea:str, fileb:str, output:str):
 @click.option('--modelname', default='paraphrase-multilingual-MiniLM-L12-v2')
 def correspondence(correspondencefile:str, line:str|None, modelname:str):
    with open(correspondencefile, 'r', encoding='utf-8') as fp:
-    corr = json.load(fp)
-    print(corr)
+     corr = json.load(fp)
+     #print(corr)
    # TODO: return corresponding line
    model = SentenceTransformer(modelname)
+   print(f'line:{line}')
    if line is not None:
-       a_embeddings = model.encode(line)
+       q_embeddings = model.encode(line).reshape(1,-1)
+       b_embeddings = numpy.array(corr['BEmbeddings'], dtype=numpy.float32)
        print(line)
-       print(a_embeddings)
-
+       print(q_embeddings)
+       print('q_embeddings', type(q_embeddings), q_embeddings.shape, q_embeddings.dtype)
+       print('b_embeddings', type(b_embeddings), b_embeddings.shape, b_embeddings.dtype)
+       sim = model.similarity(q_embeddings, b_embeddings)
+       print(sim)
+       top_k_indices_per_query = np.argsort(sim.flatten().tolist())[::-1]
+       print(top_k_indices_per_query)
+       print('A', len(corr['A']))
+       print('B', len(corr['B']))
+       for i in range(5):
+           index = top_k_indices_per_query[i]
+           print(i, index)
+           print(i, index, corr['BOriginal'][index])
 
 
 
