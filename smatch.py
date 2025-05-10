@@ -93,7 +93,8 @@ def plot_optimal_path(sim, optimal_path):
     # Extract x and y coordinates from the optimal path
     x_coords = [pair[1]+0.5 for pair in optimal_path]
     y_coords = [pair[0]+0.5 for pair in optimal_path]
-
+    plt.savefig('similarity.png')
+    plt.savefig('similarity.svg')
     plt.plot(x_coords, y_coords, marker='o', color='red', linestyle='-')  # Plot the path
 
     plt.xlabel("English Sentences")
@@ -102,8 +103,8 @@ def plot_optimal_path(sim, optimal_path):
     plt.xticks(range(len(sim[0])))  # Set x-axis ticks
     plt.yticks(range(len(sim)))    # Set y-axis ticks
     #plt.show()
-    plt.savefig('optimal_path.png')
-    plt.savefig('optimal_path.svg')
+    plt.savefig('similarity_optimal_path.png')
+    plt.savefig('similarity_optimal_path.svg')
     plt.clf()
 
 
@@ -165,39 +166,17 @@ def corresponder(A,B, connections) -> dict:
   bnew = [[B[i] for i in elm] for elm in blist]
   return {'A':anew, 'B':bnew}
 
+def MakeSimilarityMatrix(doc1:list, doc2:list,  modelname='paraphrase-multilingual-MiniLM-L12-v2') -> numpy.ndarray:
+    model = SentenceTransformer(modelname)
+    a_embeddings = model.encode(doc1)
+    b_embeddings = model.encode(doc2)
+    sim = model.similarity(a_embeddings, b_embeddings)
+    return numpy.array(sim.tolist())
 
-@click.command()
-@click.argument('fileA', default='doca.txt', type=str)
-@click.argument('fileB', default='docb.txt', type=str)
-@click.option('--threshold', default=0.9, type=float, help='Threshold for similarity scores')
-@click.option('--output', default='result.json', type=str, help='Output file name')
-def main(filea, fileb, threshold, output):
-    """
-    Main function to compute sentence embeddings, similarity scores,
-    and perform dynamic programming matching.
-    Args:
-        threshold: A threshold value for similarity scores.
-    Returns:
-        A dictionary containing the results of the processing.
-    """
 
-    # Read the input files
-    with open(filea, 'r', encoding='utf-8') as f:
-        doca = [line.rstrip() for line in f.readlines()]
-    with open(fileb, 'r', encoding='utf-8') as f:
-        docb = [line.rstrip() for line in f.readlines()]
-    result = proc(doca, docb, threshold)
-    n = result['n']
-    print(n)
-    for i in range(n):
-        print(f"{i}:0:{result['A'][i]}")
-        print(f"{i}:1:{result['B'][i]}")
-    print(result)
-    with open(output, 'w', encoding='utf-8') as f:
-      json.dump(result, f, ensure_ascii=False, indent=4)
-    return result
 
-def proc(docA:list, docB:list, threshold:float=0.9) -> dict:
+
+def proc(docA:list, docB:list, threshold:float=0.5, modelname='paraphrase-multilingual-MiniLM-L12-v2') -> dict:
     """
     Main function to compute sentence embeddings, similarity scores,
     and perform dynamic programming matching.
@@ -207,15 +186,22 @@ def proc(docA:list, docB:list, threshold:float=0.9) -> dict:
     """
     #engtxt = docA
     #translated_literal = docB
-    model = SentenceTransformer('all-mpnet-base-v2')
+    #modelname = 'all-mpnet-base-v2'
+    #TODO: language option for japanese
+    #model = SentenceTransformer(modelname)
     # Compute sentence embeddings for all sentences
-    a_embeddings = model.encode(docA)
-    b_embeddings = model.encode(docB)
+    #a_embeddings = model.encode(docA)
+    #b_embeddings = model.encode(docB)
 
     # Compute cosine similarities
     #cosine_scores = util.cos_sim(a_embeddings, b_embeddings)
-    sim = model.similarity(a_embeddings, b_embeddings)
-    print(sim)
+    #sim = model.similarity(a_embeddings, b_embeddings)
+    #print(sim)
+    model = SentenceTransformer(modelname)
+    a_embeddings = model.encode(docA)
+    b_embeddings = model.encode(docB)
+    sim = model.similarity(a_embeddings, b_embeddings) #cos-sim
+    #sim = MakeSimilarityMatrix(docA, docB, modelname=modelname)
 
     plt.hist(sim.flatten(), bins=100)
     plt.savefig('similarity_hist.png')
@@ -227,7 +213,7 @@ def proc(docA:list, docB:list, threshold:float=0.9) -> dict:
     # Assuming 'sim' is already defined from the previous code
     sim_1d = sim.flatten()  # Convert sim to a 1D array
     # Fit a 1D 2-component GMM
-    gmm = GaussianMixture(n_components=2, random_state=0).fit(sim_1d.reshape(-1, 1))
+    gmm = GaussianMixture(n_components=2, random_state=0, reg_covar=1e-2).fit(sim_1d.reshape(-1, 1))
     # Estimated parameters
     means = gmm.means_.flatten()
     covariances = np.sqrt(gmm.covariances_.flatten())  # Standard deviations
@@ -268,9 +254,94 @@ def proc(docA:list, docB:list, threshold:float=0.9) -> dict:
     result['path'] = optimal_path
     result['max_score'] = max_score
     result['threshold'] = threshold
+    result['border'] = root
     result['sim'] = sim.tolist()
     result['n'] = len(result['A'])
+    result['gmmmeans'] = gmm.means_.tolist()
+    result['gmmcov'] = gmm.covariances_.tolist()
+    result['AEmbeddings'] = a_embeddings.tolist()
+    result['BEmbeddings'] = b_embeddings.tolist()
     return result
+
+@click.group()
+def cli():
+   pass
+
+
+@cli.command()
+@click.argument('fileA', default='doca.txt', type=str)
+@click.argument('fileB', default='docb.txt', type=str)
+@click.option('--threshold', default=0.5, type=float, help='Threshold for similarity scores')
+@click.option('--output', default='result.json', type=str, help='Output file name')
+@click.option('--modelname', default='paraphrase-multilingual-MiniLM-L12-v2')
+def main(filea, fileb, threshold, output, modelname:str='paraphrase-multilingual-MiniLM-L12-v2'):
+    """
+    Main function to compute sentence embeddings, similarity scores,
+    and perform dynamic programming matching.
+    Args:
+        threshold: A threshold value for similarity scores.
+    Returns:
+        A dictionary containing the results of the processing.
+    """
+
+    # Read the input files
+    with open(filea, 'r', encoding='utf-8') as f:
+        doca = [line.rstrip() for line in f.readlines()]
+    with open(fileb, 'r', encoding='utf-8') as f:
+        docb = [line.rstrip() for line in f.readlines()]
+    result = proc(doca, docb, threshold,modelname=modelname)
+    n = result['n']
+    print(n)
+    for i in range(n):
+        print(f"{i}:0:{result['A'][i]}")
+        print(f"{i}:1:{result['B'][i]}")
+    #print(result)
+    for key in result:
+       if key != 'sim':
+          print(key, result[key])
+    #obj = {'optimalpath':result['path'], 'file1':filea, 'file2':fileb, 'model':modelname}
+    obj = result
+    with open(output, 'w', encoding='utf-8') as f:
+      json.dump(obj, f, ensure_ascii=False, indent=4)
+    return result
+
+@cli.command()
+@click.argument('fileA', default='doca.txt', type=str)
+@click.argument('fileB', default='docb.txt', type=str)
+@click.option('-o', '--output', default='sim.json')
+def matrix(filea:str, fileb:str, output:str):
+    with open(filea, 'r', encoding='utf-8') as f:
+        doca = [line.rstrip() for line in f.readlines()]
+    with open(fileb, 'r', encoding='utf-8') as f:
+        docb = [line.rstrip() for line in f.readlines()]
+    simm = MakeSimilarityMatrix(doca, docb)
+    if output is not None and output.endswith('.json'):
+       with open(output, 'w', encoding='utf-8') as fp:
+         json.dump(simm.tolist(), fp)
+
+
+
+
+@cli.command()
+@click.argument('CorrespondenceFile')
+@click.option('--line', default=None)
+@click.option('--modelname', default='paraphrase-multilingual-MiniLM-L12-v2')
+def correspondence(correspondencefile:str, line:str|None, modelname:str):
+   with open(correspondencefile, 'r', encoding='utf-8') as fp:
+    corr = json.load(fp)
+    print(corr)
+   # TODO: return corresponding line
+   model = SentenceTransformer(modelname)
+   if line is not None:
+       a_embeddings = model.encode(line)
+       print(line)
+       print(a_embeddings)
+
+
+
+
+
+
 
 
 # prompt: 文章の比較をするので２０行程度の日本語の文を作ってください。内容は全体で一貫性のあるストーリーにして、１行は５文字から１００文字の幅を持ったものにしてください。文字列はリストとしてoriginalというインスタンスにしてください
@@ -326,5 +397,5 @@ translated_literal = [
 ]
 
 if __name__ == '__main__':
-    main()
-    
+    #main()
+    cli()
