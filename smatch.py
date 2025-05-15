@@ -12,8 +12,10 @@ import click
 
 # prompt: ２つのクラスタの確率密度値が一致する点を２分法で求めたい。初期値は0と1からはじめてください
 
+
 def f(x, means, covariances):
-  return (1 / (covariances[0] * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - means[0]) / covariances[0])**2) - (1 / (covariances[1] * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - means[1]) / covariances[1])**2)
+    return (1 / (covariances[0] * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - means[0]) / covariances[0])**2) - (1 / (covariances[1] * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - means[1]) / covariances[1])**2)
+
 
 def bisection(a, b, tolerance, means, covariances):
     """Finds the root of the function f using the bisection method.
@@ -26,7 +28,7 @@ def bisection(a, b, tolerance, means, covariances):
     Returns:
         The root of the function f within the interval [a, b].
     """
-    if f(a,means,covariances) * f(b,means,covariances) >= 0:
+    if f(a, means, covariances) * f(b, means, covariances) >= 0:
         print("Bisection method fails.")
         return None
 
@@ -34,60 +36,66 @@ def bisection(a, b, tolerance, means, covariances):
         c = (a + b) / 2
         if f(c, means, covariances) == 0:
             return c
-        elif f(a, means,covariances) * f(c,means,covariances) < 0:
+        elif f(a, means, covariances) * f(c, means, covariances) < 0:
             b = c
         else:
             a = c
     return (a + b) / 2
 
 # prompt: simの値を元にDPマッチングをしてください。縦横方向のスコアはすでに求めたrootの値をつかい、斜め方向のスコアはsimの値を使い、経路の合計スコアが最大となる経路を探してください。
-def dp_matching(sim:numpy.ndarray, root:float):
-  """Performs dynamic programming matching on the similarity matrix.
-  Args:
-      sim: A 2D numpy array representing the similarity matrix.
-      root: The score for horizontal and vertical movements.
-  Returns:
-      A tuple containing the maximum score and the optimal path.
-  """
-  # Initialize the DP table
-  n = len(sim)
-  m = len(sim[0])
 
-  # Initialize the DP table
-  dp = np.zeros((n + 1, m + 1))
 
-  # Fill the DP table
-  for i in range(1, n + 1):
-    for j in range(1, m + 1):
-      # Calculate scores for horizontal, vertical, and diagonal movements
-      horizontal_score = dp[i - 1, j] + root
-      vertical_score = dp[i, j - 1] + root
-      diagonal_score = dp[i - 1, j - 1] + sim[i-1][j-1]
+def dp_matching(sim: numpy.ndarray, root: float):
+    """Performs dynamic programming matching on the similarity matrix.
+    Args:
+        sim: A 2D numpy array representing the similarity matrix.
+        root: The score for horizontal and vertical movements.
+    Returns:
+        A tuple containing the maximum score and the optimal path.
+    """
+    # Initialize the DP table
+    n = len(sim)
+    m = len(sim[0])
 
-      # Choose the maximum score
-      dp[i, j] = max(horizontal_score, vertical_score, diagonal_score)
+    # Initialize the DP table
+    dp = np.zeros((n + 1, m + 1))
 
-  # Backtrack to find the optimal path
-  path = []
-  i = n
-  j = m
-  while i > 0 or j > 0:
-    path.append((i -1, j - 1))
-    if i > 0 and j > 0 and dp[i, j] == dp[i - 1, j - 1] + sim[i - 1][j - 1]:
-      i -= 1
-      j -= 1
-    elif i > 0 and dp[i,j] == dp[i-1, j] + root:
-      i -= 1
-    else:
-      j -= 1
+    # Fill the DP table
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            # Calculate scores for horizontal, vertical, and diagonal movements
+            horizontal_score = dp[i - 1, j] + root
+            vertical_score = dp[i, j - 1] + root
+            diagonal_score = dp[i - 1, j - 1] + sim[i-1][j-1]
 
-  return dp[n, m], path[::-1] # Return the maximum score and the optimal path
+            # Choose the maximum score
+            dp[i, j] = max(horizontal_score, vertical_score, diagonal_score)
+
+    # Backtrack to find the optimal path
+    path = []
+    i = n
+    j = m
+    while i > 0 or j > 0:
+        path.append((i - 1, j - 1))
+        if i > 0 and j > 0 and dp[i, j] == dp[i - 1, j - 1] + sim[i - 1][j - 1]:
+            i -= 1
+            j -= 1
+        elif i > 0 and dp[i, j] == dp[i-1, j] + root:
+            i -= 1
+        else:
+            j -= 1
+
+    # Return the maximum score and the optimal path
+    return dp[n, m], path[::-1]
 
 # prompt: 最適経路のoptimal_pathを図示してください。
+
+
 def plot_optimal_path(sim, optimal_path):
     """Plots the similarity matrix with the optimal path highlighted."""
     plt.figure(figsize=(10, 8))  # Adjust figure size as needed
-    plt.imshow(sim, cmap='viridis', interpolation='nearest')  # Use a suitable colormap
+    # Use a suitable colormap
+    plt.imshow(sim, cmap='viridis', interpolation='nearest')
     plt.colorbar(label='Similarity Score')
 
     # Extract x and y coordinates from the optimal path
@@ -95,18 +103,18 @@ def plot_optimal_path(sim, optimal_path):
     y_coords = [pair[0]+0.5 for pair in optimal_path]
     plt.savefig('similarity.png')
     plt.savefig('similarity.svg')
-    plt.plot(x_coords, y_coords, marker='o', color='red', linestyle='-')  # Plot the path
+    plt.plot(x_coords, y_coords, marker='o',
+             color='red', linestyle='-')  # Plot the path
 
     plt.xlabel("English Sentences")
     plt.ylabel("Translated Sentences")
     plt.title("Optimal Path for Sentence Alignment")
     plt.xticks(range(len(sim[0])))  # Set x-axis ticks
     plt.yticks(range(len(sim)))    # Set y-axis ticks
-    #plt.show()
+    # plt.show()
     plt.savefig('similarity_optimal_path.png')
     plt.savefig('similarity_optimal_path.svg')
     plt.clf()
-
 
 
 # prompt: A群B群の２群の整数リストがあり、要素をノードとしたときのエッジの情報がopathとして入力例のように与えられたときに、出力例のように接続関係のあるノード群をひとまとめにしたい。リストの要素のタプルはA群とB群の整数要素を表している。群の中のエッジは存在せずすべてA群とB群の間のエッジのみ存在するとして処理する関数を作ってください
@@ -130,43 +138,45 @@ def aggregate_connections(opath):
 
     for a, b in opath:
         node = (a, b)
-        #print(f'node: {node}')
+        # print(f'node: {node}')
         found_group = False
         for i, group in enumerate(groups):
-            #print(f'{i} group: {group}')
+            # print(f'{i} group: {group}')
             if any((a, bb) in group or (aa, b) in group for aa, bb in group):
-              #print(f'found group: {i} a in group?{(a, _) in group} b in group?{(_, b) in group}')
-              groups[i].append(node)
-              node_map[node] = i
-              found_group = True
-              break
+                # print(f'found group: {i} a in group?{(a, _) in group} b in group?{(_, b) in group}')
+                groups[i].append(node)
+                node_map[node] = i
+                found_group = True
+                break
         if not found_group:
-          groups.append([node])
-          node_map[node] = len(groups) - 1
-        #print(f'node_map: {node_map}')
-        #print(f'groups: {groups}')
+            groups.append([node])
+            node_map[node] = len(groups) - 1
+        # print(f'node_map: {node_map}')
+        # print(f'groups: {groups}')
     return groups
 
-def corresponder(A,B, connections) -> dict:
-  """
-  Groups connected nodes from two groups based on edge information.
-  Args:
-      A: A list of nodes from group A.
-      B: A list of nodes from group B.
-      connections: A list of tuples, where each tuple represents an edge
-                   connecting a node from group A to a node from group B.
-  Returns:
-      A list of lists, where each sublist contains connected nodes from A and B.
-  """
-  alist = [{a for a,b in c} for c in connections]
-  print('A-list:', alist)
-  blist = [{b for a,b in c} for c in connections]
-  print('B-list:', blist)
-  anew = [[A[i] for i in elm] for elm in alist]
-  bnew = [[B[i] for i in elm] for elm in blist]
-  return {'A':anew, 'B':bnew}
 
-def MakeSimilarityMatrix(doc1:list, doc2:list,  modelname='paraphrase-multilingual-MiniLM-L12-v2') -> numpy.ndarray:
+def corresponder(A, B, connections) -> dict:
+    """
+    Groups connected nodes from two groups based on edge information.
+    Args:
+        A: A list of nodes from group A.
+        B: A list of nodes from group B.
+        connections: A list of tuples, where each tuple represents an edge
+                     connecting a node from group A to a node from group B.
+    Returns:
+        A list of lists, where each sublist contains connected nodes from A and B.
+    """
+    alist = [{a for a, b in c} for c in connections]
+    print('A-list:', alist)
+    blist = [{b for a, b in c} for c in connections]
+    print('B-list:', blist)
+    anew = [[A[i] for i in elm] for elm in alist]
+    bnew = [[B[i] for i in elm] for elm in blist]
+    return {'A': anew, 'B': bnew}
+
+
+def MakeSimilarityMatrix(doc1: list, doc2: list,  modelname='paraphrase-multilingual-MiniLM-L12-v2') -> numpy.ndarray:
     model = SentenceTransformer(modelname)
     a_embeddings = model.encode(doc1)
     b_embeddings = model.encode(doc2)
@@ -174,9 +184,7 @@ def MakeSimilarityMatrix(doc1:list, doc2:list,  modelname='paraphrase-multilingu
     return numpy.array(sim.tolist())
 
 
-
-
-def proc(docA:list, docB:list, threshold:float=0.5, modelname='paraphrase-multilingual-MiniLM-L12-v2') -> dict:
+def proc(docA: list, docB: list, threshold: float = 0.5, modelname='paraphrase-multilingual-MiniLM-L12-v2') -> dict:
     """
     Main function to compute sentence embeddings, similarity scores,
     and perform dynamic programming matching.
@@ -184,36 +192,37 @@ def proc(docA:list, docB:list, threshold:float=0.5, modelname='paraphrase-multil
         threshold: A threshold value for similarity scores.
     Returns:
     """
-    #engtxt = docA
-    #translated_literal = docB
-    #modelname = 'all-mpnet-base-v2'
-    #TODO: language option for japanese
-    #model = SentenceTransformer(modelname)
+    # engtxt = docA
+    # translated_literal = docB
+    # modelname = 'all-mpnet-base-v2'
+    # TODO: language option for japanese
+    # model = SentenceTransformer(modelname)
     # Compute sentence embeddings for all sentences
-    #a_embeddings = model.encode(docA)
-    #b_embeddings = model.encode(docB)
+    # a_embeddings = model.encode(docA)
+    # b_embeddings = model.encode(docB)
 
     # Compute cosine similarities
-    #cosine_scores = util.cos_sim(a_embeddings, b_embeddings)
-    #sim = model.similarity(a_embeddings, b_embeddings)
-    #print(sim)
+    # cosine_scores = util.cos_sim(a_embeddings, b_embeddings)
+    # sim = model.similarity(a_embeddings, b_embeddings)
+    # print(sim)
     model = SentenceTransformer(modelname)
     a_embeddings = model.encode(docA)
     b_embeddings = model.encode(docB)
-    sim = model.similarity(a_embeddings, b_embeddings) #cos-sim
-    #sim = MakeSimilarityMatrix(docA, docB, modelname=modelname)
+    sim = model.similarity(a_embeddings, b_embeddings)  # cos-sim
+    # sim = MakeSimilarityMatrix(docA, docB, modelname=modelname)
 
     plt.hist(sim.flatten(), bins=100)
     plt.savefig('similarity_hist.png')
     plt.savefig('similarity_hist.svg')
-    #plt.show()
+    # plt.show()
     plt.clf()
 
     # prompt: simを１次元の値に変換してから１次元GMM２クラスタでフィッティングしてください。結果推定されたパラメータを表示してください。２つのガウス分布をプロットしてください。
     # Assuming 'sim' is already defined from the previous code
     sim_1d = sim.flatten()  # Convert sim to a 1D array
     # Fit a 1D 2-component GMM
-    gmm = GaussianMixture(n_components=2, random_state=0, reg_covar=1e-2).fit(sim_1d.reshape(-1, 1))
+    gmm = GaussianMixture(n_components=2, random_state=0,
+                          reg_covar=1e-2).fit(sim_1d.reshape(-1, 1))
     # Estimated parameters
     means = gmm.means_.flatten()
     covariances = np.sqrt(gmm.covariances_.flatten())  # Standard deviations
@@ -225,11 +234,14 @@ def proc(docA:list, docB:list, threshold:float=0.5, modelname='paraphrase-multil
 
     # Plot the two Gaussian distributions
     x = np.linspace(sim_1d.min(), sim_1d.max(), 100)
-    y1 =  (1 / (covariances[0] * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - means[0]) / covariances[0])**2)
-    y2 =  (1 / (covariances[1] * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - means[1]) / covariances[1])**2)
+    y1 = (1 / (covariances[0] * np.sqrt(2 * np.pi))) * \
+        np.exp(-0.5 * ((x - means[0]) / covariances[0])**2)
+    y2 = (1 / (covariances[1] * np.sqrt(2 * np.pi))) * \
+        np.exp(-0.5 * ((x - means[1]) / covariances[1])**2)
     plt.plot(x, y1, label='Gaussian 1')
     plt.plot(x, y2, label='Gaussian 2')
-    plt.hist(sim_1d, bins=100, density=True, alpha=0.5, label='Data') # Overlay histogram
+    plt.hist(sim_1d, bins=100, density=True, alpha=0.5,
+             label='Data')  # Overlay histogram
     plt.xlabel('Similarity Score')
     plt.ylabel('Probability Density')
     plt.title('2-Component GMM Fit')
@@ -265,9 +277,10 @@ def proc(docA:list, docB:list, threshold:float=0.5, modelname='paraphrase-multil
     result['BOriginal'] = docB
     return result
 
+
 @click.group()
 def cli():
-   pass
+    pass
 
 
 @cli.command()
@@ -276,7 +289,7 @@ def cli():
 @click.option('--threshold', default=0.5, type=float, help='Threshold for similarity scores')
 @click.option('--output', default='result.json', type=str, help='Output file name')
 @click.option('--modelname', default='paraphrase-multilingual-MiniLM-L12-v2')
-def main(filea, fileb, threshold, output, modelname:str='paraphrase-multilingual-MiniLM-L12-v2'):
+def main(filea, fileb, threshold, output, modelname: str = 'paraphrase-multilingual-MiniLM-L12-v2'):
     """
     Main function to compute sentence embeddings, similarity scores,
     and perform dynamic programming matching.
@@ -291,72 +304,69 @@ def main(filea, fileb, threshold, output, modelname:str='paraphrase-multilingual
         doca = [line.rstrip() for line in f.readlines()]
     with open(fileb, 'r', encoding='utf-8') as f:
         docb = [line.rstrip() for line in f.readlines()]
-    result = proc(doca, docb, threshold,modelname=modelname)
+    result = proc(doca, docb, threshold, modelname=modelname)
     n = result['n']
     print(n)
     for i in range(n):
         print(f"{i}:0:{result['A'][i]}")
         print(f"{i}:1:{result['B'][i]}")
-    #print(result)
+    # print(result)
     for key in result:
-       if key != 'sim':
-          print(key, result[key])
-    #obj = {'optimalpath':result['path'], 'file1':filea, 'file2':fileb, 'model':modelname}
+        if key != 'sim':
+            print(key, result[key])
+    # obj = {'optimalpath':result['path'], 'file1':filea, 'file2':fileb, 'model':modelname}
     obj = result
     with open(output, 'w', encoding='utf-8') as f:
-      json.dump(obj, f, ensure_ascii=False, indent=4)
+        json.dump(obj, f, ensure_ascii=False, indent=4)
     return result
+
 
 @cli.command()
 @click.argument('fileA', default='doca.txt', type=str)
 @click.argument('fileB', default='docb.txt', type=str)
 @click.option('-o', '--output', default='sim.json')
-def matrix(filea:str, fileb:str, output:str):
+def matrix(filea: str, fileb: str, output: str):
     with open(filea, 'r', encoding='utf-8') as f:
         doca = [line.rstrip() for line in f.readlines()]
     with open(fileb, 'r', encoding='utf-8') as f:
         docb = [line.rstrip() for line in f.readlines()]
     simm = MakeSimilarityMatrix(doca, docb)
     if output is not None and output.endswith('.json'):
-       with open(output, 'w', encoding='utf-8') as fp:
-         json.dump(simm.tolist(), fp)
-
-
+        with open(output, 'w', encoding='utf-8') as fp:
+            json.dump(simm.tolist(), fp)
 
 
 @cli.command()
 @click.argument('CorrespondenceFile')
 @click.option('--line', default=None)
 @click.option('--modelname', default='paraphrase-multilingual-MiniLM-L12-v2')
-def correspondence(correspondencefile:str, line:str|None, modelname:str):
-   with open(correspondencefile, 'r', encoding='utf-8') as fp:
-     corr = json.load(fp)
-     #print(corr)
-   # TODO: return corresponding line
-   model = SentenceTransformer(modelname)
-   print(f'line:{line}')
-   if line is not None:
-       q_embeddings = model.encode(line).reshape(1,-1)
-       b_embeddings = numpy.array(corr['BEmbeddings'], dtype=numpy.float32)
-       print(line)
-       print(q_embeddings)
-       print('q_embeddings', type(q_embeddings), q_embeddings.shape, q_embeddings.dtype)
-       print('b_embeddings', type(b_embeddings), b_embeddings.shape, b_embeddings.dtype)
-       sim = model.similarity(q_embeddings, b_embeddings)
-       print(sim)
-       top_k_indices_per_query = np.argsort(sim.flatten().tolist())[::-1]
-       print(top_k_indices_per_query)
-       print('A', len(corr['A']))
-       print('B', len(corr['B']))
-       for i in range(5):
-           index = top_k_indices_per_query[i]
-           print(i, index)
-           print(i, index, corr['BOriginal'][index])
-
-
-
-
-
+def correspondence(correspondencefile: str, line: str | None, modelname: str):
+    with open(correspondencefile, 'r', encoding='utf-8') as fp:
+        corr = json.load(fp)
+    model = SentenceTransformer(modelname)
+    print(f'line:{line}')
+    if line is not None:
+        q_embeddings = model.encode(line).reshape(1, -1)
+        b_embeddings = numpy.array(corr['BEmbeddings'], dtype=numpy.float32)
+        print(line)
+        print(q_embeddings)
+        print('q_embeddings', type(q_embeddings),
+              q_embeddings.shape, q_embeddings.dtype)
+        print('b_embeddings', type(b_embeddings),
+              b_embeddings.shape, b_embeddings.dtype)
+        sim = model.similarity(q_embeddings, b_embeddings)
+        print(sim)
+        top_k_indices_per_query = np.argsort(sim.flatten().tolist())[::-1]
+        print(top_k_indices_per_query)
+        print('A', len(corr['AOriginal']))
+        print('B', len(corr['BOriginal']))
+        for i, index in enumerate(top_k_indices_per_query):
+            # index = top_k_indices_per_query[i]
+            # print(i, index)
+            if len(corr['BOriginal'][index]) != 0:
+                print(i, index, corr['BOriginal'][index])
+        borg = [(i, index, corr['BOriginal'][index]) for i, index in enumerate(
+            top_k_indices_per_query) if len(corr['BOriginal'][index]) != 0]
 
 
 # prompt: 文章の比較をするので２０行程度の日本語の文を作ってください。内容は全体で一貫性のあるストーリーにして、１行は５文字から１００文字の幅を持ったものにしてください。文字列はリストとしてoriginalというインスタンスにしてください
@@ -412,5 +422,5 @@ translated_literal = [
 ]
 
 if __name__ == '__main__':
-    #main()
+    # main()
     cli()
